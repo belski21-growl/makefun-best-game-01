@@ -2,46 +2,126 @@
 [![rank](https://make.fun/badge/best-game-01/belski21-growl/makefun-best-game-01/rank.svg)](https://make.fun/bounty/best-game-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
 [![reward](https://make.fun/badge/best-game-01/belski21-growl/makefun-best-game-01/reward.svg)](https://make.fun/bounty/best-game-01?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
 
-# Wispkeeper — Lantern of the Night Garden
+# ASHEN HOLLOW — The Hearth Has Gone Cold
 
-A complete, original 2D canvas game for make.fun's **best-game-01** ($1,000,
-10 places). No library, no network at runtime: plain ES modules, a canvas, and
-synthesised WebAudio sound.
+A complete, original dark JRPG for make.fun's **best-game-01** ($1,000,
+10 places). No library, no network at runtime: plain ES modules, a canvas,
+pixel sprites drawn in code, and synthesised WebAudio chiptune. A modern
+JRPG with the soul of a classic — and the mood of a dark rogue: an overworld
+of scorched earth and haunted woods, people to talk to, and turn-based
+battles against the cold that stole the hearth.
 
 ## The game
 
-You are the Wispkeeper, carrying a living lantern through a night garden.
-Golden wisps drift through the dark; guide them into your lantern's light
-before dawn breaks. Shadow moths hunt your flame — burn them with a pulse of
-light before they strike.
+The hearth-flame of Aldermere has gone cold. Ash the Hearthwarden, Mira the
+Embercaller, Bram the Bulwark, Rowan the Deadeye, Vex the Nightblade and
+Liora the Dawncaller set out to gather the three Ember Crystals — Gale,
+Dawn and Tide — from their guarded shrines, then face the Hollow King at
+the Ashen Throne and bring the warmth back. Only four fight at a time;
+two wait in reserve in Aldermere and still earn half the XP.
 
-- **Five nights.** Each night asks for more wisps (12 → 28) before a shorter
-  dawn timer runs out. Clear a night for a dawn bonus; survive all five and
-  morning breaks — you win.
-- **Three flames.** A moth strike costs one flame and breaks your combo.
-  Three strikes snuff the lantern out. Dawn breaking with the lantern unfilled
-  ends the run too.
-- **Combo scoring.** Wisps gathered in quick succession climb a x1–x5 combo;
-  the chime climbs with it. Burning a moth is worth 25 points.
-- **Pulse.** Click or Space fires a ring of light that burns moths. It costs
-  energy, recharges over time, and has a short cooldown — spend it well.
+- **Overworld.** A 40×30 pixel-art map of six dark biomes: Aldermere
+  (gothic dark village), the Howling Crags (cave), the Wraithwood
+  (haunted forest), the Venomfen (poison river), the Bonefields and the
+  Ashen Throne. Walk with WASD/arrows or click a tile to walk there; talk
+  to Elder Maren, Pip, Torchwarden Torin and a dozen villagers whose
+  dialog changes as crystals are won; follow the quest tracker from
+  shrine to shrine. Houses, lanterns, graveyards and ruins are all
+  different; smoke, embers and fog drift on game time. Giant landmarks
+  (the Wraithwood spirit tree, the fanged cave mouth, the overflowing
+  poison flood, the Bonefields ribcage, the ruined statue, the throne
+  thorns) dominate their zones, and the party lantern throws a warm
+  pool of light through the dark.
+- **Battle spectacle.** Ultimates fire layered shockwave rings,
+  ground fractures, screen shake and big popping damage numbers; the
+  boss carries a drifting purple aura with pulsing red eyes, and hits
+  flash the sprite's own silhouette white instead of a blank box.
+  The visuals are driven by a separate seeded generator, so the
+  spectacle never eats combat dice — damage rolls are unchanged.
+- **Hearthfire checkpoints + saving.** Campfires in the village and near
+  every shrine save the whole run to `localStorage` (crystals, levels,
+  inventory, equipment, party, quests) — interact and see "Progress
+  saved". A crystal auto-saves too. The title screen offers Continue.
+  Rest at the inn to restore the party's HP/MP for free.
+- **Side quests + a mystery.** Five side quests from the villagers
+  (kill Cave Wraiths, gather tide seals and gravewax, find lost lanterns,
+  deliver a sealed letter), tracked in a quest log on the pause screen,
+  paying XP, gold and equipment. One hidden quest — talk to the silent
+  gravekeeper three times after two crystals — and one hidden boss, the
+  Grief Below (HP 240, stronger than any shrine guardian), waiting behind
+  the great spirit tree. Its location is only ever hinted at, never
+  arrowed.
+- **Party of six, four active.** Ash (Warrior/Vanguard, Emberblade),
+  Mira (Wizard/Arcane, Galeweave Staff), Bram (Tank/Sentinel,
+  Gravehammer), Rowan (Marksman/Deadeye, Marrowbow), Vex (Assassin/
+  Nightblade, Griefsplitter Daggers) and Liora (Healer/Dawncaller, Sunlit
+  Staff). Press Tab for the Party menu: swap an active hero with a
+  reserve outside battle; reserves earn 50% XP. Each hero is readable at
+  a glance — sword, staff, tower shield + hammer, bow + quiver, twin
+  daggers, holy staff — with name, class, role and weapon on the HUD,
+  in battle and on the title screen.
+- **Equipment, three tiers each.** Every hero equips one weapon, one
+  armor and one accessory (54 pieces, tier I → II → III), raising atk,
+  def, HP, MP and speed. Tiers come from shrine bosses, side quests, the
+  mystery quest, the hidden boss — or the village blacksmith, who forges
+  an upgrade from three monster-drop materials. Manage it in the Party
+  menu (Tab, then Tab again for Equipment).
+- **Random encounters.** Tall grass hides Gloomshades, Gravebats, Pale
+  Wisps, Acidmires, Ashen Hounds, Venomcoils, Rattlebones,
+  Rotshamblers and Cave Wraiths — nothing cute, nothing bright. Win to
+  earn XP and gold; the party levels up, grows stronger, and learns new
+  skills. Venomcoil's bite can poison; Antidote cures it.
+- **Turn-based battles.** Attack, Skill, Item or Run, with a speed-ordered
+  turn queue, damage numbers, crits, guard and stun, boss-only attacks
+  (the Hollow Wave every third turn), and a 1x/2x battle-speed toggle.
+  Only the four active heroes fight. Each hero has a class, a role and a
+  passive perk that really runs: Ash (Vanguard) counters with Ember
+  Riposte, Mira (Arcane) regains MP with Emberwell, Bram (Sentinel)
+  guards harder with Aegis Guard, Rowan (Deadeye) crits more often with
+  Hawkeye, Vex (Nightblade) deals more damage to low-HP foes with
+  Executioner, Liora (Dawncaller) regains the party a little HP each
+  round with Grace. Items: Potion, Ether, Elixir (full HP+MP), Phoenix
+  Tear (revive at 50% HP) and Antidote; bosses drop Elixir.
+- **Spectacular skills.** Each hero has 2 skills + 1 ULTIMATE (unlock
+  Lv2, once per battle): Ash's **Ashen Requiem** (five burning slashes),
+  Mira's **Hollowfire Cataclysm** (an explosion that hits all foes),
+  Bram's **Hearthwall Judgment** (a shield slam that guards the party),
+  Rowan's **Storm of Arrows** (a deadly multi-hit arrow volley), Vex's
+  **Umbral Flurry** (multi-hit shadow slashes) and Liora's **Sanctum of
+  Dawn** (a great heal that revives fallen allies). Ultimates come with
+  a big name card, element flash, layered particles, shockwave rings,
+  cracked ground, screen shake and a slow-mo beat before the damage
+  lands.
+- **Three shrine guardians, one final boss — and one hidden.** Galehowl,
+  Dawnwing and Tidecoil each guard a crystal; the Hollow King waits
+  behind all three at the throne. Lose and the party wakes back in
+  Aldermere, healed and ready.
+- **Modern comforts.** Smooth tile movement with a trailing party, pause,
+  mute, generated chiptune themes (title / field / battle), and best progress
+  (crystals, victories, best time) kept in `localStorage`.
 
 ## Controls
 
 | Input | Action |
 | --- | --- |
-| Mouse | The lantern eases toward the pointer |
-| WASD / arrow keys | Steer the lantern |
-| Click / Space | Fire the pulse (or confirm on menus) |
-| P / Esc | Pause |
+| WASD / arrow keys | Walk (hold to keep walking) |
+| Click a tile | Walk there; click a nearby person, shrine or throne to interact |
+| E / Space / Enter | Talk, open shrines, advance dialog, confirm in battle |
+| Arrow keys + Enter | Battle menus (or click the menu) |
+| Tab | Party menu (swap active/reserve, Tab again for Equipment) |
+| P / Esc | Pause / resume |
 | M | Mute |
+| 1 / 2 | Battle speed 1x / 2x |
+| H | How to play (title screen) |
+| N | New game (title screen, when a save exists) |
 
 ## Screens
 
-Title (with instructions and best score) → play with a full HUD (score, best,
-night, dawn timer, wisps gathered, flames, pulse energy, combo) → night-cleared
-interstitial → game over or victory, each with run statistics and restart.
-Best score is kept in `localStorage`.
+Title (with instructions and best progress) → overworld with a full HUD
+(party HP/MP, class + role + perk, crystals, gold, quest tracker, region
+banners) → battle with turn menus, skill-name cards and damage numbers →
+pause → game over (respawn in town) or victory with run statistics and
+restart. A screen-reader status line announces screen changes.
 
 ## Structure
 
@@ -49,14 +129,23 @@ Best score is kept in `localStorage`.
 game/
   index.html            the page: one canvas, one module script
   src/
-    config.js           every tuning number, the night table, the palette
-    random.js           the seeded generator (mulberry32) + helpers
-    audio.js            all sound, synthesised with WebAudio (no audio files)
-    input.js            keyboard + mouse, one-shot actions
-    world.js            the rules: lantern, wisps, moths, pulse, dawn
-    render.js           everything seen: garden, lantern, HUD, screens
-    shots.js            deterministic screenshot scenes (?shot=…)
-    main.js             boot, the fixed-step loop, screen flow
+    tuning.js           every tuning number, view size, palette, move timing
+    dice.js             the seeded generator (mulberry32) + helpers
+    story.js            the map + dark biomes, NPCs, dialogues, skills,
+                        party classes/perks, enemies, and every pixel
+                        sprite as a string bitmap
+    field.js            the overworld rules: walking, talking, shrines,
+                        the throne, encounters, the quest, click-to-walk
+    combat.js           the turn-based battle rules: menus, skills,
+                        ultimates + FX state, items, XP, gold, level-ups,
+                        boss attacks, running, class perks
+    chiptune.js         all sound, synthesised with WebAudio (no audio files)
+    keys.js             keyboard + mouse, held directions, one-shot actions
+    painter.js          everything seen: tiles, sprites, HUD, dialog,
+                        battle + ultimate spectacle, title, victory,
+                        game over, pause
+    frames.js           deterministic screenshot scenes (?shot=…)
+    boot.js             boot, the fixed-step loop, screen flow
 ```
 
 `main.ts` (Node 22, standard library only) copies `game/` and `screenshots/`
@@ -70,7 +159,8 @@ node serve.ts          # serves game/ at http://localhost:8080
 ```
 
 Or open `game/index.html` from any static server. The screenshot scenes are
-staged deterministically: `?shot=start|play|end|win&seed=N`.
+staged deterministically:
+`?shot=title|field|battle|battle-ult|victory&seed=N`.
 
 ## License
 
