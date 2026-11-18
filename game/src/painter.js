@@ -1,9 +1,10 @@
 // ASHEN HOLLOW — everything the eye sees, drawn on one canvas. Tiles,
-// sprites, HUD, menus and screens are all procedural: no image files
-// anywhere. The world is dark: scorched earth, dead trees, poison water,
+// sprites, HUD, menus and screens are procedural, except the Emberwyrm atlas. The world is dark: scorched earth, dead trees, poison water,
 // torchlight and blood-red embers — every tile textured with seeded noise,
 // every animation driven by game time.
 // Part 1: sprites, tiles, the overworld and its HUD.
+
+import { drawDragonIdle, drawDragonBreath } from './dragon-atlas.js';
 
 import { VIEW_W, VIEW_H, TILE, PALETTE, clamp } from './tuning.js';
 import { SPRITES, NPCS, SKILLS, tileAt, biomeAt, landmarkAt, QUESTS, PARTY_TEMPLATE } from './story.js';
@@ -24,6 +25,7 @@ export const SCREENS = {
   PAUSED: 'paused',
   VICTORY: 'victory',
   GAMEOVER: 'gameover',
+  HEARTH: 'hearth',
 };
 
 /** Deterministic per-tile hash in [0,1): the same tile always gets the
@@ -956,11 +958,57 @@ function drawEnvironment(ctx, map, cx, cy, t) {
   ctx.restore();
 }
 
+function drawBrazierPuzzle(ctx, field, camX, camY, time) {
+  const puzzle = field.state.braziers;
+  if (!puzzle) return;
+  const sx = puzzle.shrine.x * TILE + 16 - camX;
+  const sy = puzzle.shrine.y * TILE - camY;
+  const lit = field.state.fieldPresentation?.brazierLit ?? puzzle.lit;
+  ctx.save();
+  // A separate wayside shrine leaves the crystal shrines and their rules intact.
+  ctx.fillStyle = '#252536'; ctx.fillRect(sx - 52, sy - 46, 104, 74);
+  ctx.fillStyle = '#697082'; ctx.fillRect(sx - 60, sy + 28, 120, 8);
+  ctx.fillStyle = '#9494a3'; ctx.fillRect(sx - 44, sy - 38, 12, 66); ctx.fillRect(sx + 32, sy - 38, 12, 66);
+  ctx.fillStyle = '#77778c'; ctx.fillRect(sx - 50, sy - 48, 100, 12);
+  ctx.fillStyle = '#131323'; ctx.fillRect(sx - 28, sy - 30, 56, 58);
+  ctx.fillStyle = '#b1a5ce'; ctx.font = 'bold 16px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('III', sx, sy - 10);
+  if (puzzle.solved) {
+    light(ctx, sx, sy + 14, 65, '255,155,60', 0.4);
+    ctx.fillStyle = '#855030'; ctx.fillRect(sx - 18, sy + 3, 36, 24);
+    ctx.fillStyle = '#efbd6d'; ctx.fillRect(sx - 20, sy + 2, 40, 5); ctx.fillRect(sx - 3, sy + 10, 6, 8);
+  }
+  for (const [i, b] of puzzle.spots.entries()) {
+    const x = b.x * TILE + 16 - camX, y = b.y * TILE - camY;
+    const burning = lit.includes(i);
+    if (burning) light(ctx, x, y - 12, 86, '255,123,35', 0.48);
+    ctx.fillStyle = '#252a38'; ctx.fillRect(x - 22, y + 20, 44, 10);
+    ctx.fillStyle = '#596071'; ctx.fillRect(x - 14, y - 2, 28, 25);
+    ctx.fillStyle = '#9296a2'; ctx.fillRect(x - 19, y - 7, 38, 8);
+    ctx.fillStyle = '#171925'; ctx.fillRect(x - 14, y - 8, 28, 5);
+    ctx.fillStyle = '#353b4b'; ctx.fillRect(x - 10, y + 3, 4, 16); ctx.fillRect(x + 6, y + 3, 4, 16);
+    if (burning) {
+      ctx.fillStyle = '#f16b25'; ctx.beginPath(); ctx.moveTo(x - 13, y - 7); ctx.lineTo(x - 9, y - 27); ctx.lineTo(x - 3, y - 20); ctx.lineTo(x + 4, y - 45 + Math.sin(time * 5 + i) * 3); ctx.lineTo(x + 14, y - 12); ctx.lineTo(x + 8, y - 5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ffe2a1'; ctx.beginPath(); ctx.moveTo(x - 6, y - 7); ctx.lineTo(x + 2, y - 29); ctx.lineTo(x + 7, y - 7); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#161927'; ctx.fillRect(x - 39, y + 35, 78, 37);
+    ctx.fillStyle = burning ? '#ffd397' : '#afb7ce'; ctx.font = 'bold 18px monospace';
+    ctx.fillText(['I', 'II', 'III'][i], x, y + 52);
+    ctx.font = '10px monospace'; ctx.fillText(burning ? 'KINDLED' : 'UNLIT', x, y + 66);
+  }
+
+  ctx.restore();
+}
+
 function drawField(ctx, field, time, muted, opts = {}) {
   const { map, hero, followers } = field.state;
   const camX = clamp(hero.px + TILE / 2 - VIEW_W / 2, 0, map.w * TILE - VIEW_W);
   const camY = clamp(hero.py + TILE / 2 - VIEW_H / 2, 0, map.h * TILE - VIEW_H);
   const lit = field.state.crystals.size;
+  // End screens retain their original presentation (P0.1 is field only).
+  const fieldLight = opts.quest !== false;
+  ctx.save();
+  if (fieldLight) ctx.filter = 'brightness(1.85)';
   const x0 = Math.max(0, Math.floor(camX / TILE));
   const y0 = Math.max(0, Math.floor(camY / TILE));
   const x1 = Math.min(map.w - 1, Math.ceil((camX + VIEW_W) / TILE));
@@ -985,6 +1033,37 @@ function drawField(ctx, field, time, muted, opts = {}) {
     if (lm.x + lm.w < x0 - 2 || lm.x > x1 + 2 || lm.y + lm.h < y0 - 2 || lm.y > y1 + 2) continue;
     drawLandmark(ctx, lm, camX, camY, time);
   }
+  ctx.restore();
+  if (fieldLight) {
+    // Cool ambient fill lifts shadow floors while preserving tile texture.
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = 'rgba(112,136,156,0.34)';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.restore();
+    // These creatures are scenery only: no encounter, collision or dice calls.
+    for (const [x, y, sprite] of [[730, 276, 'palewisp'], [1050, 330, 'gloomshade']]) {
+      const rows = SPRITES[sprite];
+      const scale = 3;
+      const width = Math.max(...rows.map((r) => r.length)) * scale;
+      const height = rows.length * scale;
+      const px = x - camX, py = y - camY + Math.sin(time * 2 + x) * 3;
+      light(ctx, px, py - height / 2, 55, '164,148,232', 0.36);
+      ctx.save(); ctx.shadowColor = '#c7bbff'; ctx.shadowBlur = 8;
+      drawSprite(ctx, sprite, px - width / 2, py - height, scale, false);
+      ctx.restore();
+    }
+    // Shot-only dressing is render data, never map tiles or interactive state.
+    for (const prop of field.state.fieldPresentation?.props || []) {
+      const px = prop.x - camX, py = prop.y - camY;
+      light(ctx, px + 16, py + 12, 66, '163,184,218', 0.24);
+      ctx.save(); ctx.filter = 'brightness(1.8)';
+      drawTile(ctx, prop.tile, px, py, time, prop.x + prop.y,
+        Math.floor(prop.x / TILE), Math.floor(prop.y / TILE), map, lit);
+      ctx.restore();
+    }
+  }
+  if (fieldLight) drawBrazierPuzzle(ctx, field, camX, camY, time);
   // NPCs stand on the map, bobbing gently. Torin carries a torch. Tilda
   // hides indoors until the first crystal is won, then comes out.
   for (const npc of NPCS) {
@@ -999,6 +1078,7 @@ function drawField(ctx, field, time, muted, opts = {}) {
       ctx.fillStyle = glow;
       ctx.fillRect(nx - 20, ny - 34, 88, 88);
     }
+    if (fieldLight) light(ctx, nx + 16, ny + 16, 42, '170,190,218', 0.22);
     drawSprite(ctx, npc.sprite, nx, ny, 2, false);
   }
   // The active party walks: the hero, then the active followers.
@@ -1006,9 +1086,17 @@ function drawField(ctx, field, time, muted, opts = {}) {
     ...followers.map((w, i) => ({ sprite: w.sprite, w })),
     { sprite: 'ash', w: hero },
   ];
-  for (const { sprite, w } of walkers) {
+  for (const [i, { sprite, w }] of walkers.entries()) {
     const bob = w.moving ? Math.sin(time * 18) * 1.5 : 0;
-    drawSprite(ctx, sprite, w.px - camX + 4, w.py - camY - 8 + bob, 2, false);
+    const offset = fieldLight ? field.state.fieldPresentation?.partyOffsets?.[i] : null;
+    const px = (offset ? hero.px + offset[0] : w.px) - camX;
+    const py = (offset ? hero.py + offset[1] : w.py) - camY + bob;
+    if (fieldLight) {
+      light(ctx, px + 16, py + 4, 44, '169,188,222', 0.24);
+      ctx.save(); ctx.shadowColor = '#b7c9e7'; ctx.shadowBlur = 4;
+    }
+    drawSprite(ctx, sprite, px + (fieldLight ? -8 : 4), py - (fieldLight ? 24 : 8), fieldLight ? 3 : 2, false);
+    if (fieldLight) ctx.restore();
   }
   // Drifting fog, layered: near bands and far wisps, all driven by game time.
   for (let i = 0; i < 6; i += 1) {
@@ -1033,7 +1121,7 @@ function drawField(ctx, field, time, muted, opts = {}) {
   // Warm light falls off smoothly over the ground.
   const hx = hero.px - camX + TILE / 2;
   const hy = hero.py - camY + TILE / 2;
-  light(ctx, hx, hy, 180, '255,110,42', 0.17);
+  light(ctx, hx, hy, fieldLight ? 300 : 180, fieldLight ? '200,186,166' : '255,110,42', fieldLight ? 0.26 : 0.17);
   // A dark vignette closes the edges of the screen, as stepped frame bands
   // that fade toward the centre and leave the map readable.
   const vigSteps = [
@@ -1046,10 +1134,26 @@ function drawField(ctx, field, time, muted, opts = {}) {
   ];
   for (const [inset, col] of vigSteps) {
     ctx.fillStyle = col;
+    ctx.globalAlpha = fieldLight ? 0.35 : 1;
     ctx.beginPath();
     ctx.rect(0, 0, VIEW_W, VIEW_H);
     ctx.rect(inset, inset, VIEW_W - inset * 2, VIEW_H - inset * 2);
     ctx.fill('evenodd');
+  }
+  ctx.globalAlpha = 1;
+  if (fieldLight && field.state.braziers) {
+    ctx.save();
+  if (Math.abs(field.state.hero.tx - 15) < 8 && Math.abs(field.state.hero.ty - 16) < 6) {
+    ctx.fillStyle = '#0a0710';
+    ctx.fillRect(310, 343, 472, 67);
+    panel(ctx, 310, 343, 472, 67);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#f2d6aa'; ctx.font = 'bold 20px monospace';
+    ctx.fillText('KINDLE THE BRAZIERS', 546, 367);
+    ctx.fillStyle = '#c4cada'; ctx.font = '13px monospace';
+    ctx.fillText('I → II → III · Wrong rune: all flames fade', 546, 387);
+    ctx.font = '11px monospace'; ctx.fillText('Face a brazier + E / Space, or click beside it', 546, 402);
+  }
+    ctx.restore();
   }
   // Region banner fades in over the map, centred so it never covers the HUD.
   if (field.state.banner && field.state.banner.t < 2.2) {
@@ -1090,9 +1194,9 @@ function drawBattle(ctx, combat, time, muted) {
   const boss = foes.find((f) => f.boss && f.hp > 0);
   const grad = ctx.createLinearGradient(0, 0, 0, VIEW_H);
   if (boss) {
-    grad.addColorStop(0, '#050308');
-    grad.addColorStop(0.55, '#1a0d24');
-    grad.addColorStop(1, '#0d0714');
+    grad.addColorStop(0, '#344052');
+    grad.addColorStop(0.55, '#50465f');
+    grad.addColorStop(1, '#354657');
   } else {
     grad.addColorStop(0, '#0d0819');
     grad.addColorStop(0.55, '#241536');
@@ -1112,7 +1216,7 @@ function drawBattle(ctx, combat, time, muted) {
   if (fx.shake > 0.2) {
     ctx.translate(fx.shake * Math.sin(time * 47), fx.shake * Math.cos(time * 39));
   }
-  ctx.fillStyle = '#0c0918';
+  ctx.fillStyle = boss ? '#3b4057' : '#0c0918';
   ctx.beginPath();
   ctx.moveTo(0, 330);
   ctx.lineTo(240, 250);
@@ -1123,7 +1227,7 @@ function drawBattle(ctx, combat, time, muted) {
   ctx.lineTo(0, 392);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = '#1a1226';
+  ctx.fillStyle = boss ? '#505267' : '#1a1226';
   ctx.fillRect(0, 330, VIEW_W, 62);
   // Impact fractures spread across the ground and cool on game time.
   for (const crack of fx.cracks || []) {
@@ -1148,22 +1252,26 @@ function drawBattle(ctx, combat, time, muted) {
   foes.forEach((foe) => {
     if (foe.hp <= 0) return;
     const pos = foeSlotPos(foe.slot, foes.length);
-    // Bosses draw four scales bigger than their data scale, so they dominate
-    // the frame (the data scale stays untouched — unit tests pin it). The
-    // Hermes boss sprites are compact (8-9 rows), so +1 left Galehowl a
-    // speck lost inside its own ultimate burst; +4 restores its presence.
-    const scale = (foe.scale || (foe.boss ? 5 : 4)) + (foe.boss ? 4 : 0);
+    // Presentation only: twice the former boss scale; combat data is untouched.
+    const scale = ((foe.scale || (foe.boss ? 5 : 4)) + (foe.boss ? 4 : 0)) * (foe.boss ? 2 : 1);
     const bob = Math.sin(time * 2 + foe.slot * 1.7) * 3;
     const rows = SPRITES[foe.sprite] || [];
-    const w = Math.max(14, ...rows.map((r) => r.length)) * scale;
+    const w = Math.max(foe.boss ? 1 : 14, ...rows.map((r) => r.length)) * scale;
     const h = rows.length * scale;
     const dx = pos.x + (foe.knock || 0) * 26;
     if (foe.boss) {
-      // A billowing dark aura around the boss.
+      // Cool luminous halo and a ground seal frame the enlarged silhouette.
+      ctx.save();
+      ctx.strokeStyle = '#c3b4ef'; ctx.lineWidth = 3;
+      ctx.shadowColor = '#b6a2f0'; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.ellipse(dx, pos.y, w * 0.58, h * 0.64, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#95bbd2'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(dx, pos.y + h / 2 + 4, w * 0.65, 16, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
       const pulse = 0.4 + 0.18 * Math.sin(time * 2.4 + foe.slot);
       const aura = ctx.createRadialGradient(dx, pos.y, 10, dx, pos.y, 140);
-      aura.addColorStop(0, `rgba(90, 40, 160, ${pulse})`);
-      aura.addColorStop(0.6, 'rgba(20, 8, 32, 0.35)');
+      aura.addColorStop(0, `rgba(160, 142, 210, ${pulse})`);
+      aura.addColorStop(0.6, 'rgba(112, 132, 182, 0.35)');
       aura.addColorStop(1, 'rgba(20, 8, 32, 0)');
       ctx.fillStyle = aura;
       ctx.fillRect(dx - 150, pos.y - 150, 300, 300);
@@ -1175,7 +1283,10 @@ function drawBattle(ctx, combat, time, muted) {
         ctx.globalAlpha = 1;
       }
     }
+    ctx.save();
+    if (foe.boss) { ctx.filter = 'brightness(2.1)'; ctx.shadowColor = '#b5c3e6'; ctx.shadowBlur = 3; }
     drawSprite(ctx, foe.sprite, dx - w / 2, pos.y - h / 2 + bob, scale, false);
+    ctx.restore();
     if (foe.boss) {
       ctx.save();
       ctx.shadowColor = '#ff241c';
@@ -1230,7 +1341,10 @@ function drawBattle(ctx, combat, time, muted) {
     ctx.fillStyle = glow;
     ctx.fillRect(660, y - 56, 112, 112);
     ctx.globalAlpha = dead ? 0.35 : 1;
-    drawSprite(ctx, hero.sprite, 700, y - 20, 3, false);
+    const anim = combat.state.anim;
+    const dragon = !dead && hero.name === 'Ash' && anim?.kind === 'ultimate'
+      && anim.actor === hero && drawDragonIdle(ctx, anim.t, 748, 432);
+    if (!dragon) drawSprite(ctx, hero.sprite, 700, y - 20, 3, false);
     ctx.globalAlpha = 1;
     ctx.fillStyle = dead ? '#8a7a6a' : PALETTE.ink;
     ctx.font = 'bold 13px monospace';
@@ -1290,6 +1404,27 @@ function drawBattle(ctx, combat, time, muted) {
     ctx.fillText(boss.name, VIEW_W / 2, 14);
     bar(ctx, VIEW_W / 2 - 200, 34, 400, 10, boss.hp / boss.maxHp, PALETTE.ember);
   }
+  // Read-only view of this round: current actor, then remaining actors.
+  // Never sort, advance or predict next-round ties (those consume combat dice).
+  const turnStart = Math.max(0, combat.state.actorIndex - 1);
+  const turns = combat.state.order.slice(turnStart).filter((a) => a.ref.hp > 0).slice(0, 5);
+  ctx.save();
+  ctx.fillStyle = '#263346'; ctx.fillRect(40, 54, 620, 50);
+  ctx.strokeStyle = '#97accb'; ctx.lineWidth = 1; ctx.strokeRect(40, 54, 620, 50);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#e5eaf5';
+  ctx.fillText('TURN', 50, 64); ctx.fillText('ORDER →', 50, 81);
+  turns.forEach((actor, i) => {
+    const x = 116 + i * 108;
+    const rows = SPRITES[actor.ref.sprite] || [];
+    const iconScale = Math.min(2, 28 / Math.max(1, rows.length, ...rows.map((r) => r.length)));
+    ctx.fillStyle = i === 0 ? '#52617d' : '#344159'; ctx.fillRect(x, 59, 104, 40);
+    drawSprite(ctx, actor.ref.sprite, x + 4, 65, iconScale, false);
+    ctx.fillStyle = '#f0edf8'; ctx.font = 'bold 11px monospace';
+    ctx.fillText(i === 0 ? 'NOW' : String(i + 1), x + 36, 62);
+    ctx.font = '11px monospace'; ctx.fillText(actor.ref.name, x + 36, 80, 66);
+  });
+  ctx.restore();
   // Command menu (left) and message (right).
   panel(ctx, MENU.x, MENU.y, MENU.w, MENU.h);
   const items = combat.menuItems();
@@ -1332,6 +1467,35 @@ function drawBattle(ctx, combat, time, muted) {
   ctx.font = '15px monospace';
   const msgLines = wrapText(ctx, combat.state.message, MENU.w - 320);
   msgLines.forEach((line, i) => ctx.fillText(line, MENU.x + 300, MENU.y + 14 + i * 20));
+  // Ember Arts is presentation-only and sits below the turn strip in open ground.
+  const combo = Math.min(4, combat.state.emberCombo || 0);
+  const comboArmed = combo >= 4;
+  ctx.save();
+  ctx.fillStyle = 'rgba(12, 8, 14, 0.94)';
+  ctx.fillRect(40, 112, 190, 62);
+  ctx.strokeStyle = comboArmed ? '#ffd56a' : '#b66a30'; ctx.lineWidth = comboArmed ? 3 : 2;
+  ctx.strokeRect(41, 113, 188, 60);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = comboArmed ? '#ffe08a' : '#ffc857'; ctx.font = 'bold 12px monospace';
+  ctx.fillText(comboArmed ? 'EMBER ARTS READY' : 'EMBER ARTS', 50, 120);
+  if (comboArmed) {
+    ctx.shadowColor = '#ffc857'; ctx.shadowBlur = 12;
+    ctx.strokeStyle = '#ffd56a'; ctx.lineWidth = 2;
+    ctx.strokeRect(41, 113, 188, 60);
+    ctx.shadowBlur = 0;
+  }
+  ctx.fillStyle = '#fff0c2'; ctx.font = 'bold 21px monospace';
+  ctx.fillText(String(combo), 190, 116);
+  ctx.fillStyle = '#c8b89b'; ctx.font = '11px monospace';
+  ctx.fillText('/ 4', 207, 125);
+  for (let i = 0; i < 4; i += 1) {
+    const x = 50 + i * 42;
+    ctx.fillStyle = i < combo ? (i === 3 ? '#ffd56a' : '#ff7835') : '#34262a';
+    ctx.fillRect(x, 146, 36, 16);
+    ctx.strokeStyle = i < combo ? '#ffc857' : '#76513b'; ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, 146.5, 35, 15);
+  }
+  ctx.restore();
   // Ambient embers drift up through the battlefield, faint and warm.
   for (let i = 0; i < 14; i += 1) {
     const ex = (i * 73 + time * 11) % VIEW_W;
@@ -1340,6 +1504,39 @@ function drawBattle(ctx, combat, time, muted) {
     ctx.fillStyle = i % 3 === 0 ? '#ff5a2a' : '#e8a33d';
     ctx.fillRect(ex, ey, 2, 2);
     ctx.globalAlpha = 1;
+  }
+  // Ash's existing ultimate clock owns the transformation and breath; no
+  // extra state, timers, random draws, hit events or combat FX pipeline.
+  const dragonAnim = combat.state.anim;
+  const dragonUltimate = dragonAnim?.kind === 'ultimate'
+    && dragonAnim.actor?.name === 'Ash' && dragonAnim.actor.hp > 0;
+  const dragonTime = dragonUltimate ? dragonAnim.t * combat.state.speed : 0;
+  if (dragonUltimate && dragonTime >= 0.35 && dragonTime < 1.95) {
+    const breathTime = dragonTime - 0.35;
+    const opacity = Math.min(1, breathTime / 0.15, (1.95 - dragonTime) / 0.2);
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    // The mouth cone strikes left, then blooms into a low lateral fire wave.
+    // Visible outer geometry x24..656 = 632 logical px = 842.67px at 720p.
+    // Keep the upper boss silhouette and the party/HUD clear of the low wave.
+    const fire = ctx.createLinearGradient(24, 0, 656, 0);
+    fire.addColorStop(0, '#e85b2d');
+    fire.addColorStop(0.45, '#ffc66c');
+    fire.addColorStop(1, '#e85b2d');
+    ctx.fillStyle = fire;
+    ctx.globalAlpha = opacity * 0.62;
+    ctx.beginPath();
+    ctx.moveTo(300, 198); ctx.lineTo(24, 304);
+    for (let i = 0; i <= 32; i += 1) {
+      const x = 24 + i * 19.75;
+      const crest = 334 - 20 * Math.sin(i * 2.1 + breathTime * 16) - (i % 3) * 8;
+      ctx.lineTo(x, crest);
+    }
+    ctx.lineTo(656, 366); ctx.lineTo(24, 366); ctx.closePath(); ctx.fill();
+    // Keep the supplied flame connected at the mouth without masking Galehowl.
+    ctx.globalAlpha = opacity * 0.3;
+    drawDragonBreath(ctx, breathTime, 302, 202);
+    ctx.restore();
   }
   // Rings spreading from the explosion point — each ring draws a second,
   // larger, fainter echo, so the shockwave reads as layered.
@@ -1380,6 +1577,15 @@ function drawBattle(ctx, combat, time, muted) {
   }
   // Particles: embers, shadow shards, steel sparks.
   for (const p of fx.particles) {
+    if (dragonUltimate && dragonTime >= 0.5 && dragonTime < 1.95) {
+      const index = fx.particles.indexOf(p);
+      const u = hash2(index, 7, 39);
+      const x = 24 + u * 632;
+      const y = 348 - ((p.age * 95 + hash2(index, 9, 40) * 48) % 88);
+      ctx.globalAlpha = Math.max(0, 1 - p.age / p.life) * 0.7;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(x, y, Math.max(3, p.size), Math.max(3, p.size * 1.8));
+    }
     ctx.globalAlpha = Math.max(0, 1 - p.age / p.life);
     ctx.fillStyle = p.color;
     if (p.layer === 2) {
@@ -1404,7 +1610,7 @@ function drawBattle(ctx, combat, time, muted) {
     ctx.globalAlpha = Math.max(0, 1 - float.t / float.dur);
     ctx.fillStyle = float.color;
     const pop = 1 + 0.4 * Math.max(0, 1 - float.t / 0.18);
-    ctx.font = `bold ${Math.round((float.size || 22) * 1.25 * pop)}px monospace`;
+    ctx.font = `bold ${Math.round(Math.max(32, (float.size || 22) * 1.6) * pop)}px monospace`;
     ctx.textAlign = 'center';
     ctx.strokeStyle = '#08040e';
     ctx.lineWidth = 5;
@@ -1425,7 +1631,12 @@ function drawBattle(ctx, combat, time, muted) {
     ctx.fillRect(40, cardY, 520, cardH);
     ctx.strokeStyle = card.color;
     ctx.lineWidth = 2;
+    if (card.finisher) {
+      ctx.shadowColor = '#ff7a2f';
+      ctx.shadowBlur = 16;
+    }
     ctx.strokeRect(40, cardY, 520, cardH);
+    ctx.shadowBlur = 0;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     if (card.ultimate) {
@@ -1434,7 +1645,7 @@ function drawBattle(ctx, combat, time, muted) {
       ctx.fillText('★  ULTIMATE  ★', 300, cardY + 6);
     }
     ctx.fillStyle = card.color;
-    ctx.font = card.ultimate ? 'bold 28px monospace' : 'bold 22px monospace';
+    ctx.font = card.finisher ? 'bold 17px monospace' : card.ultimate ? 'bold 28px monospace' : 'bold 22px monospace';
     ctx.fillText(card.text.toUpperCase(), 300, card.ultimate ? cardY + 20 : cardY + 8);
     ctx.fillStyle = PALETTE.ink;
     ctx.font = '12px monospace';
@@ -1581,8 +1792,8 @@ function fmtTime(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function drawEndScreen(ctx, title, lines, accent, time) {
-  ctx.fillStyle = 'rgba(5, 3, 10, 0.9)';
+function drawEndScreen(ctx, title, lines, accent, time, victory = false, loot = null) {
+  ctx.fillStyle = victory ? 'rgba(5, 3, 10, 0.12)' : 'rgba(5, 3, 10, 0.9)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   panel(ctx, VIEW_W / 2 - 300, 120, 600, 300);
   ctx.textAlign = 'center';
@@ -1599,6 +1810,120 @@ function drawEndScreen(ctx, title, lines, accent, time) {
     ctx.font = 'bold 18px monospace';
     ctx.fillText('▶  Press Enter or Click to continue', VIEW_W / 2, 372);
   }
+  if (victory && loot) {
+    const colors = { Magic: '#70b9ff', Rare: '#ffe16b', Legendary: '#ff9a55' };
+    panel(ctx, VIEW_W / 2 - 270, 434, 540, 108);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = colors[loot.rarity] || PALETTE.gold;
+    ctx.font = 'bold 15px monospace';
+    ctx.fillText('BOSS DROP', VIEW_W / 2, 444);
+    ctx.font = 'bold 17px monospace';
+    ctx.fillText(loot.name, VIEW_W / 2, 466);
+    ctx.fillStyle = PALETTE.ink;
+    ctx.font = '14px monospace';
+    ctx.fillText(`${loot.rarity}  ·  Tier ${loot.tier}  ·  ${loot.affix}`, VIEW_W / 2, 495);
+  }
+}
+
+function drawHearth(ctx, field) {
+  // Victory-style brightening: field with brightness boost + warm screen overlay + hearth glow
+  ctx.save();
+  ctx.filter = 'brightness(2.0)';
+  drawField(ctx, field, 2, false, { quest: false });
+  ctx.restore();
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.fillStyle = 'rgba(220,180,120,0.55)'; // stronger warm screen
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  ctx.restore();
+  // Hearth glow at center-bottom (like victory hearth)
+  light(ctx, VIEW_W / 2, VIEW_H - 40, 300, '232,174,106', 0.6);
+  // Very light overlay — lets the warmed field show through
+  ctx.fillStyle = 'rgba(5, 4, 8, 0.08)';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  // Main panel: fits in 960x540 with 20px margins
+  const panelX = 20, panelY = 20, panelW = VIEW_W - 40, panelH = VIEW_H - 40;
+  // Much lighter panel fill
+  ctx.fillStyle = 'rgba(28, 24, 36, 0.7)';
+  ctx.fillRect(panelX, panelY, panelW, panelH);
+  ctx.strokeStyle = PALETTE.panelEdge;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(panelX + 1, panelY + 1, panelW - 2, panelH - 2);
+
+  // Title: gothicText is center-aligned, so center at VIEW_W/2
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  gothicText(ctx, 'THE HEARTH', VIEW_W / 2, 44, 'bold 32px monospace', PALETTE.gold, 2);
+  ctx.fillStyle = PALETTE.inkDim; ctx.font = '13px monospace';
+  ctx.fillText('ALDERMERE  /  KEEP THE FIRE, KEEP THE PEOPLE', VIEW_W / 2, 88);
+
+  // Gold: right-aligned at panel right edge
+  ctx.textAlign = 'right'; ctx.fillStyle = '#f0d48b'; ctx.font = 'bold 20px monospace';
+  ctx.fillText(`GOLD  ${field.state.gold}`, panelX + panelW - 24, 48);
+
+  // Tier section
+  ctx.textAlign = 'left'; ctx.fillStyle = PALETTE.ink; ctx.font = 'bold 15px monospace';
+  ctx.fillText('HEARTH UPGRADES', panelX + 32, 120);
+  const tiers = [
+    { name: 'I  /  INN', effect: 'Restores more HP and MP when resting.', cost: '80 G', status: 'ESTABLISHED' },
+    { name: 'II  /  BLACKSMITH', effect: 'Unlocks forged equipment at the anvil.', cost: '220 G', status: 'NEXT UPGRADE' },
+    { name: 'III  /  SHOP', effect: 'Opens a village shop for supplies.', cost: '420 G', status: 'LATER' },
+  ];
+  const tierStartY = 150;
+  const tierGap = 86;
+  const tierPanelW = panelW - 64; // 32px margins each side
+  tiers.forEach((tier, i) => {
+    const y = tierStartY + i * tierGap;
+    // Much lighter tier panels
+    ctx.fillStyle = 'rgba(32, 28, 42, 0.75)';
+    ctx.fillRect(panelX + 32, y, tierPanelW, 70);
+    ctx.strokeStyle = PALETTE.panelEdge;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(panelX + 33, y + 1, tierPanelW - 2, 68);
+    ctx.fillStyle = i === 0 ? '#d4b66f' : '#8192a5';
+    ctx.fillRect(panelX + 33, y + 1, 5, 68);
+    ctx.textAlign = 'left'; ctx.fillStyle = i === 0 ? '#ffe29a' : '#e4e0dc';
+    ctx.font = 'bold 16px monospace'; ctx.fillText(tier.name, panelX + 54, y + 10);
+    ctx.fillStyle = PALETTE.ink; ctx.font = '12px monospace'; ctx.fillText(tier.effect, panelX + 54, y + 36);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#d6bd82'; ctx.font = 'bold 14px monospace';
+    ctx.fillText(tier.cost, panelX + panelW - 48, y + 11);
+    ctx.fillStyle = i === 0 ? '#f2d987' : '#9ba6b1'; ctx.font = 'bold 10px monospace';
+    ctx.fillText(tier.status, panelX + panelW - 48, y + 41);
+  });
+
+  // Stars section
+  ctx.textAlign = 'left'; ctx.fillStyle = PALETTE.inkDim; ctx.font = '11px monospace';
+  const starsLabelY = tierStartY + tiers.length * tierGap + 10;
+  ctx.fillText('PROJECTED COSTS  /  NO GOLD SPENT', panelX + 32, starsLabelY);
+  ctx.fillStyle = PALETTE.ink; ctx.font = 'bold 14px monospace';
+  ctx.fillText('STARS OF THE HEARTH', panelX + 32, starsLabelY + 28);
+
+  const stars = [
+    { name: 'The Gravekeeper', role: 'Keeper of the old names' },
+    { name: 'Elder Maren', role: 'Voice of Aldermere' },
+    { name: 'Braska Veld', role: 'Village blacksmith' },
+  ];
+  const starPanelW = 280;
+  const starPanelH = 120;
+  const starStartY = starsLabelY + 56;
+  const starGapX = (panelW - 64 - 3 * starPanelW) / 2; // equal gaps between 3 panels
+  stars.forEach((star, i) => {
+    const x = panelX + 32 + i * (starPanelW + starGapX);
+    // Much lighter star panels
+    ctx.fillStyle = 'rgba(32, 28, 42, 0.75)';
+    ctx.fillRect(x, starStartY, starPanelW, starPanelH);
+    ctx.strokeStyle = PALETTE.panelEdge;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, starStartY + 1, starPanelW - 2, starPanelH - 2);
+    ctx.fillStyle = ['#bb8c6b', '#a9b7a0', '#95a9bc'][i];
+    ctx.fillRect(x + 12, starStartY + 12, 4, starPanelH - 24);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#f0e4d2'; ctx.font = 'bold 15px monospace';
+    ctx.fillText(star.name, x + 26, starStartY + 14, starPanelW - 40);
+    ctx.fillStyle = PALETTE.ink; ctx.font = '12px monospace';
+    ctx.fillText(star.role, x + 26, starStartY + 42, starPanelW - 40);
+    ctx.fillStyle = '#d8b765'; ctx.font = 'bold 10px monospace';
+    ctx.fillText('★  STAR OF THE HEARTH', x + 26, starStartY + 84);
+  });
 }
 
 export function fieldCamera(field) {
@@ -1629,18 +1954,54 @@ export function createPainter(canvas) {
       drawTitle(ctx, game.bestText, game.showControls, game.time, game.hasSave);
       return;
     }
+    if (game.screen === SCREENS.HEARTH) {
+      drawHearth(ctx, game.field);
+      return;
+    }
     if (game.screen === SCREENS.BATTLE) {
       drawBattle(ctx, game.combat, game.time, game.muted);
       return;
     }
     if (game.screen === SCREENS.VICTORY) {
+      // Victory-only exposure: leave field, battle and game-over passes intact.
+      ctx.save();
+      ctx.filter = 'brightness(2)';
       drawField(ctx, game.field, game.time, game.muted, { quest: false });
+      ctx.restore();
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(110,130,150,0.45)';
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+      ctx.restore();
+      // Render-only reunion below the panel (bottom edge y=420). The real
+      // walkers, map, inventory and quest state are never repositioned.
+      const hearthX = VIEW_W / 2, hearthY = 478;
+      light(ctx, hearthX, hearthY, 190, '232,174,106', 0.42);
+      ctx.save();
+      ctx.translate(hearthX - 32, hearthY - 32);
+      ctx.scale(2, 2);
+      drawTile(ctx, 'K', 0, 0, game.time, 0, 0, 0, game.field.state.map, 3);
+      ctx.restore();
+      const reunion = [...game.field.state.followers.map((w) => w.sprite), 'ash'];
+      reunion.forEach((sprite, i) => {
+        const x = hearthX + [-156, -90, 90, 156][i];
+        if (!Number.isFinite(x)) return;
+        const rows = SPRITES[sprite];
+        const width = Math.max(...rows.map((r) => r.length)) * 3;
+        const height = rows.length * 3;
+        light(ctx, x, hearthY, 58, '186,199,224', 0.32);
+        ctx.save();
+        ctx.filter = 'brightness(1.6)';
+        ctx.shadowColor = '#c6d5ea'; ctx.shadowBlur = 4;
+        drawSprite(ctx, sprite, x - width / 2, 508 - height, 3, false);
+        ctx.restore();
+      });
       drawEndScreen(ctx, 'THE HEARTH BURNS AGAIN', [
         `The Hollow King is gone. Aldermere is warm once more.`,
         `Time ${fmtTime(game.stats.time)}   •   Battles won ${game.stats.battles}`,
         `Party level ${game.stats.level}   •   Gold ${game.stats.gold}`,
         `Ember Crystals 3 / 3   •   Reserves gain 50% XP`,
-      ], PALETTE.gold, game.time);
+      ], PALETTE.gold, game.time, true, game.loot);
       return;
     }
     if (game.screen === SCREENS.GAMEOVER) {

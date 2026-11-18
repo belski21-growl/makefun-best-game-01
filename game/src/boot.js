@@ -3,7 +3,7 @@
 // is there. The game moves between six screens: title, field, battle,
 // paused, game over and victory.
 //
-// ?seed=N fixes the run's dice. ?shot=title|field|battle|victory (with
+// ?seed=N fixes the run's dice. ?shot=title|field|battle|victory|victory-loot (with
 // &seed=N) stages that scene instead of running the loop, paints it twice
 // and sets window.__shotReady for a screenshot.
 import { BEST_KEY, SAVE_KEY, STEP } from './tuning.js';
@@ -97,6 +97,7 @@ function runShot(name) {
       time: 2.0,
       showControls: false,
       stats: scene.stats || { time: 0, battles: 0, level: 1, gold: 0 },
+      loot: scene.loot || null,
     });
     painted += 1;
     if (painted < 2) requestAnimationFrame(paint);
@@ -115,6 +116,7 @@ function runGame() {
   let best = readBest();
   let hasSave = Boolean(readSave());
   let stats = null;
+  let victoryLoot = null;
   let muted = false;
   let battleSpeed = 1;
   let accumulator = 0;
@@ -218,6 +220,7 @@ function runGame() {
           level: Math.max(...field.state.party.map((h) => h.level)),
           gold: field.state.gold,
         };
+        victoryLoot = result.loot || null;
         if (best.bestTime === null || stats.time < best.bestTime) best.bestTime = stats.time;
         best.victories += 1;
         saveBest(best);
@@ -396,6 +399,7 @@ function runGame() {
       time,
       showControls,
       stats: stats || { time: 0, battles: 0, level: 1, gold: 0 },
+      loot: victoryLoot,
     });
   }
 

@@ -100,6 +100,35 @@ two wait in reserve in Aldermere and still earn half the XP.
   mute, generated chiptune themes (title / field / battle), and best progress
   (crystals, victories, best time) kept in `localStorage`.
 
+## Round 3 — Emberwyrm Ascension (revision)
+
+Round 3 is a readability pass plus a new headline moment, built on the
+round-2 game without changing its rules. The field is brighter and easier
+to read — landmarks, enemies and the party lantern stand out against the
+dark instead of sinking into it — bosses loom larger in battle, damage
+numbers are bigger, and the victory screen shows the hearth and the whole
+party clearly.
+
+The centrepiece is Ash's **Emberwyrm Ascension**: once per battle, when
+Ash fires his ultimate, he does not just swing his sword — he becomes a
+dragon. A hand-drawn ember wyrm (idle and breath atlases, drawn from the
+game's own pixel art) fills nearly half the battle screen, breathes a cone
+of fire across the foes, and then Ash returns to his normal sprite. It is
+a once-per-battle transformation, not a permanent form, and the fight
+carries on exactly as before.
+
+Around it, three smaller systems make battles and exploration feel more
+alive. **Ember Arts** is a combo meter: landing hits in a row builds a
+streak, and the meter rewards clean play with visible feedback instead of
+silent numbers. Bosses now drop loot worth looking at — the drop toast
+names the item in its rarity colour, and equipment drops can arrive with
+extra affixes, so two drops of the same piece are not always the same.
+Out on the field, the shrines hide a small puzzle, **Kindle the
+Braziers**: light the braziers in the right pattern to open the way
+forward. And the Hearth itself grows with you — three upgrade tiers that
+make Aldermere's fire stronger, plus three **Stars of the Hearth** to
+find, each one a small permanent light for the party's home.
+
 ## Controls
 
 | Input | Action |
@@ -144,6 +173,9 @@ game/
     painter.js          everything seen: tiles, sprites, HUD, dialog,
                         battle + ultimate spectacle, title, victory,
                         game over, pause
+    dragon-atlas.js     the Emberwyrm dragon atlases (idle + breath):
+                        loader + draw calls, with a sprite fallback
+                        if the atlas files cannot load
     frames.js           deterministic screenshot scenes (?shot=…)
     boot.js             boot, the fixed-step loop, screen flow
 ```

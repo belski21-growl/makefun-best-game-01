@@ -6,7 +6,7 @@
 // particles, rings, the skill-name card) is filled by the rules and read
 // by painter.js — all of it driven by game time, never by the clock.
 
-import { xpNext, grantXp, SKILLS, ITEMS, ENEMIES, SPRITES } from './story.js';
+import { xpNext, grantXp, SKILLS, ITEMS, ENEMIES, SPRITES, EQUIPMENT, equipmentBySource } from './story.js';
 import { RUN_CHANCE } from './tuning.js';
 
 /** How much damage a guard lets through. Bram's Aegis Guard perk cuts it
@@ -65,6 +65,7 @@ export function createCombat(dice, party, inventory, spec) {
       : `Something stirs in the dark — ${foes.map((f) => f.name).join(', ')}!`,
     floats: [],
     anim: null,
+    emberCombo: 0,
     results: null,
     fled: false,
     waveCount: 0,
@@ -124,11 +125,13 @@ export function createCombat(dice, party, inventory, spec) {
     }
   }
   function setNameCard(skill, hero) {
+    const finisher = skill.kind === 'ultimate' && state.emberCombo >= 4;
     state.fx.nameCard = {
-      text: skill.name,
+      text: finisher ? `EMBER ARTS FINISHER — ${skill.name}` : skill.name,
       sub: `${hero.name} — ${hero.cls}`,
       color: ELEMENT_COLORS[skill.element] || '#ffc857',
       ultimate: skill.kind === 'ultimate',
+      finisher,
       t: 0,
       dur: skill.kind === 'ultimate' ? 1.7 : 0.9,
     };
@@ -249,6 +252,7 @@ export function createCombat(dice, party, inventory, spec) {
     return { amount: raw, crit };
   }
   function applyDamage(target, amount, crit, x, y) {
+    if (state.heroes.includes(target) && state.emberCombo < 4) state.emberCombo = 0;
     target.hp = Math.max(0, target.hp - amount);
     if (target.flash !== undefined) target.flash = 1;
     if (target.knock !== undefined) target.knock = 1;
@@ -268,7 +272,18 @@ export function createCombat(dice, party, inventory, spec) {
       }
       const BOSS_SOURCE = { galehowl: 'gale', tidecoil: 'tide', dawnwing: 'dawn', griefbelow: 'hidden' };
       const sourceKey = state.boss ? (BOSS_SOURCE[state.foes[0].id] || null) : null;
-      state.results = { xp, gold, levelUps, materials, elixir: state.boss ? 1 : 0, sourceKey, slain: state.foes.map((f) => f.id) };
+      const lootPool = sourceKey ? equipmentBySource(sourceKey) : [];
+      const lootId = lootPool.length ? dice.pick(lootPool) : null;
+      const affix = lootId ? dice.pick(['Ember', 'Hollow', 'Cinder', 'of the Hollow', 'of Embers', 'of the Wraithwood']) : null;
+      const equipment = lootId ? EQUIPMENT[lootId] : null;
+      const loot = equipment ? {
+        id: lootId,
+        name: equipment.name,
+        tier: equipment.tier,
+        rarity: ['Magic', 'Rare', 'Legendary'][equipment.tier - 1],
+        affix,
+      } : null;
+      state.results = { xp, gold, levelUps, materials, elixir: state.boss ? 1 : 0, sourceKey, slain: state.foes.map((f) => f.id), loot };
       state.phase = 'win';
       state.phaseT = 0;
       setMessage(levelUps.length > 0
@@ -362,6 +377,7 @@ export function createCombat(dice, party, inventory, spec) {
       if (skill && skill.kind === 'ultimate') {
         hero.ultUsed = true;
         setNameCard(skill, hero);
+        state.emberCombo = 0;
         triggerFx(skill, pos.x, pos.y, 1);
         if (skill.hits) {
           // Ashen Requiem: five burning slashes, one after another, after
@@ -486,6 +502,7 @@ export function createCombat(dice, party, inventory, spec) {
       playAnim(skill ? 'skill' : 'strike', hero, foe, () => {
         const hit = damageOf(hero, power, foe);
         applyDamage(foe, hit.amount, hit.crit, pos.x, pos.y - 40);
+        if (!skill) state.emberCombo = Math.min(4, state.emberCombo + 1);
         if (skill && skill.kind === 'bash' && dice.chance(0.35) && foe.hp > 0) {
           foe.stun = 1;
           setMessage(`${hero.name}'s Shield Bash hits ${foe.name} for ${hit.amount} — stunned!`);

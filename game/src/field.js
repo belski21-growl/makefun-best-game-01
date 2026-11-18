@@ -53,6 +53,11 @@ export function createField(dice) {
     map,
     hero: { tx: 19, ty: 26, px: 19 * TILE, py: 26 * TILE, dir: 'down', moving: false, moveT: 0, fromX: 19, fromY: 26, toX: 19, toY: 26 },
     followers: [],
+    // Independent optional puzzle: no dice, quest, inventory or save changes.
+    braziers: {
+      spots: [{ x: 11, y: 16 }, { x: 15, y: 16 }, { x: 19, y: 16 }],
+      shrine: { x: 15, y: 13 }, lit: [], solved: false,
+    },
     party: cloneParty(),
     gold: 20,
     inventory: { potion: 3, ether: 1, elixir: 1, phoenixTear: 1 },
@@ -259,7 +264,23 @@ export function createField(dice) {
   }
 
   // --- Interaction ----------------------------------------------------------
+  function kindleBrazier(index) {
+    const puzzle = state.braziers;
+    if (puzzle.solved) return;
+    if (index !== puzzle.lit.length) {
+      puzzle.lit = [];
+      setBanner('Wrong rune — all braziers go dark. Begin with I.');
+      return;
+    }
+    puzzle.lit.push(index);
+    puzzle.solved = puzzle.lit.length === 3;
+    setBanner(puzzle.solved ? 'Three flames kindle. A shrine chest appears!' : 'Rune kindled. Follow I → II → III.');
+  }
+
   function interact() {
+    const brazier = state.braziers.spots.findIndex((b) =>
+      b.x === state.hero.tx + DIRS[state.hero.dir].x && b.y === state.hero.ty + DIRS[state.hero.dir].y);
+    if (brazier >= 0) { kindleBrazier(brazier); return null; }
     const npc = npcNear();
     if (npc) {
       // The Gravekeeper counts his talks BEFORE the lines are computed, so
@@ -555,6 +576,10 @@ export function createField(dice) {
       const lm = landmarkAt(tx, ty);
       const isInn = INN_TILES.has(`${tx},${ty}`);
       const near = Math.abs(tx - state.hero.tx) + Math.abs(ty - state.hero.ty) <= 1;
+      if (near && state.braziers.spots.some((b) => b.x === tx && b.y === ty)) {
+        kindleBrazier(state.braziers.spots.findIndex((b) => b.x === tx && b.y === ty));
+        return null;
+      }
       if (near && (npc || crystal || tile === 'X' || tile === 'K' || tile === 'P'
         || tile === 'G' || tile === 'L' || lm || isInn)) return interact();
       if (isWalkable(map, tx, ty)) state.walkTarget = { x: tx, y: ty };
